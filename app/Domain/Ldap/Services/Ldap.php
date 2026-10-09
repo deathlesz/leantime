@@ -24,6 +24,12 @@ class Ldap
 
     private mixed $ldapDn; // DN where users are located (including baseDn)
 
+    private string $ldapBindDn = '';
+
+    private string $ldapBindDnPassword = '';
+
+    private string $ldapCaCertFile = '';
+
     private mixed $ldapKeys = [
         'username' => 'uid',
         'groups' => 'memberof',
@@ -71,6 +77,9 @@ class Ldap
             // Prepare and map in case we want to get the config from somewhere else in the future
             $this->host = $this->config->ldapHost;
             $this->ldapDn = $this->config->ldapDn;
+            $this->ldapBindDn = (string) ($this->config->ldapBindDn ?? '');
+            $this->ldapBindDnPassword = (string) ($this->config->ldapBindDnPassword ?? '');
+            $this->ldapCaCertFile = (string) ($this->config->ldapCaCertFile ?? '');
             $this->defaultRoleKey = (int) $this->config->ldapDefaultRoleKey;
             $this->port = $this->config->ldapPort;
             $this->ldapLtGroupAssignments = json_decode(stripslashes(trim($this->config->ldapLtGroupAssignments)));
@@ -111,6 +120,16 @@ class Ldap
         }
 
         if (function_exists('ldap_connect')) {
+            if ($this->ldapCaCertFile !== '') {
+                if (! is_file($this->ldapCaCertFile)) {
+                    Log::error('LDAP: CA certificate file does not exist: '.$this->ldapCaCertFile);
+
+                    return false;
+                }
+
+                ldap_set_option(null, LDAP_OPT_X_TLS_CACERTFILE, $this->ldapCaCertFile);
+            }
+
             if ($this->ldapUri !== '' && str_starts_with($this->ldapUri, 'ldap')) {
                 $this->ldapConnection = ldap_connect($this->ldapUri);
             } else {
@@ -119,6 +138,16 @@ class Ldap
 
             ldap_set_option($this->ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3) or exit('Unable to set LDAP protocol version');
             ldap_set_option($this->ldapConnection, LDAP_OPT_REFERRALS, 0); // We need this for doing an LDAP search.
+
+            // Bind with the configured service account so directory searches work
+            // even when the server does not allow anonymous access.
+            if ($this->ldapBindDn !== '' && ! @ldap_bind($this->ldapConnection, $this->ldapBindDn, $this->ldapBindDnPassword)) {
+                Log::error('LDAP: Service account bind failed for DN: '.$this->ldapBindDn);
+
+                if ((bool) $this->config->debug === true) {
+                    Log::error(ldap_error($this->ldapConnection));
+                }
+            }
 
             if ($this->config->debug) {
                 ldap_set_option($this->ldapConnection, LDAP_OPT_DEBUG_LEVEL, 7);
@@ -134,6 +163,11 @@ class Ldap
 
     public function bind(string $username = '', string $password = ''): bool
     {
+
+        if ($username === '' && $password === '' && $this->ldapBindDn !== '') {
+            // No user credentials supplied; fall back to the service account bind established in connect().
+            return @ldap_bind($this->ldapConnection, $this->ldapBindDn, $this->ldapBindDnPassword);
+        }
 
         if ($username !== '' && $password !== '') {
             $passwordBind = $password;

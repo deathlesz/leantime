@@ -145,11 +145,28 @@ class Environment extends Repository implements ArrayAccess, ConfigContract
     }
 
     /**
-     * tryGetFromEnvironment - try to get a value from the environment
+     * tryGetFromEnvironment - try to get a value from the environment.
+     *
+     * Supports the `_FILE` convention for secrets: if `LEAN_SOME_VAR` is not set but
+     * `LEAN_SOME_VAR_FILE` points to an existing file, the file's contents (trimmed) are
+     * used as the value. This makes it possible to inject secrets via mounted files
+     * (e.g. docker secrets) instead of plaintext environment variables.
      */
     private function tryGetFromEnvironment(string $envVar, mixed $currentValue): mixed
     {
-        return $_ENV[$envVar] ?? env($envVar) ?? $currentValue;
+        $value = $_ENV[$envVar] ?? env($envVar);
+
+        if ($value !== null) {
+            return $value;
+        }
+
+        $file = $_ENV[$envVar.'_FILE'] ?? env($envVar.'_FILE');
+
+        if (is_string($file) && $file !== '' && is_file($file)) {
+            return trim((string) file_get_contents($file));
+        }
+
+        return $currentValue;
     }
 
     /**

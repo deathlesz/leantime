@@ -111,6 +111,12 @@ class Config
 
     public $ldapDn = '';                                  // Location of users, example: CN=users,DC=example,DC=com
 
+    public $ldapBindDn = '';                              // Distinguished name of a service account used to bind for directory searches.
+                                                         // Required if the directory does not allow anonymous binds.
+    public $ldapBindDnPassword = '';                      // Password of the service account.
+                                                         // Alternatively set LEAN_LDAP_BIND_DN_PASSWORD_FILE to a file containing the secret.
+    public $ldapCaCertFile = '';                          // Path to a CA certificate file (PEM) used to verify TLS connections to the LDAP server.
+
     // Default LDAP keys in your directory.
     // Works for OL
     public $ldapKeys = '{

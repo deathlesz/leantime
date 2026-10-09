@@ -314,6 +314,25 @@ class DefaultConfig
     public string $ldapDn = '';
 
     /**
+     * @var string Distinguished name of the service account used to bind to the directory.
+     *             Required when the directory does not allow anonymous binds (searches would fail otherwise).
+     *             Leave empty to bind anonymously / as the logging-in user only.
+     */
+    public string $ldapBindDn = '';
+
+    /**
+     * @var string Password of the service account defined in ldapBindDn.
+     *             Can also be provided via LEAN_LDAP_BIND_DN_PASSWORD_FILE pointing to a file containing the secret.
+     */
+    public string $ldapBindDnPassword = '';
+
+    /**
+     * @var string Path to a CA certificate file (PEM) used to verify TLS connections to the LDAP server.
+     *             Leave empty to use the system default CA bundle.
+     */
+    public string $ldapCaCertFile = '';
+
+    /**
      * @var string Default LDAP keys in your directory. Works for OL
      */
     public string $ldapKeys = '{
